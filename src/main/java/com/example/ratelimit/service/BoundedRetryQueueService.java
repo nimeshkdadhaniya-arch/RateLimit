@@ -26,7 +26,7 @@ public class BoundedRetryQueueService {
     private final ArrayBlockingQueue<DroppedRequest> queue;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final long retryIntervalMs;
-
+    private static final int MAX_RETRY = 3;
 
     public BoundedRetryQueueService(
                                     @Value("${ratelimit.retry.queue.size:10}") int capacity,
@@ -66,14 +66,38 @@ public class BoundedRetryQueueService {
                 // resume normal processing by dispatching/doFilter on the AsyncContext
 
                 FilterChain chain = dr.getFilterChain();
+                dr.getResponse().setStatus(200);
                 ctx.dispatch();
             } else {
-                sendTooManyRequestsAndComplete(dr.getResponse(),dr.getAsyncContext());
+               // sendTooManyRequestsAndComplete(dr.getResponse(),dr.getAsyncContext());
+                if (dr.getAttempts() < MAX_RETRY) {
+                    dr.incrementAttempts();
+                    //long delay = nextRetryDelay(dr.getRetryCount());
+                    log.debug("Retry {} for request {}, will retry after {}ms", dr.getAttempts(),
+                            dr.getRequest().getParameter("key"), retryIntervalMs);
+                    requeue(dr, 60000);
+                } else {
+                    log.warn("Request dropped after max retries: {}", dr.getRequest().getParameter("key"));
+                    sendTooManyRequestsAndComplete(dr.getResponse(), ctx); // or push to DLQ
+                }
             }
         } catch (Exception e) {
             sendServerErrorAndComplete(dr.getResponse(), dr.getAsyncContext());
         }
 
+    }
+
+    private void requeue(DroppedRequest req, long delayMs) {
+        log.debug("requeue request {} with delay {}ms", req.getRequest().getParameter("key"), delayMs);
+        boolean enqueued = enqueue(req);
+        if (enqueued) {
+            log.debug("Request enqueued for retry processing later.");
+            //req..response.setStatus(HttpServletResponse.SC_ACCEPTED); // accepted for background processing
+
+        } else {
+           // response.setStatus(429); // queue full => reject
+        }
+        scheduler.schedule(() -> processRequest(req), delayMs, TimeUnit.MILLISECONDS);
     }
 
 

@@ -45,7 +45,7 @@ public class RateLimitSlidingUserLogTest1 {
             // You can either:
             // 1️⃣ return a real implementation
             // 2️⃣ or a simple stub for controlled behavior
-            return new BoundedRetryQueueService(5, 30000L); // Example with small queue size and short retry interval
+            return new BoundedRetryQueueService(5, 500000L); // Example with small queue size and short retry interval
         }
     }
 
@@ -53,7 +53,7 @@ public class RateLimitSlidingUserLogTest1 {
     void  testRateLimitAndQueueBehavior() throws Exception {
         String baseUrl = "/api/limit?type=SLIDING_WINDOW_LOG_USER&key=userid1";
 
-        Thread.sleep(31000); //queue poll first time.
+        //Thread.sleep(31000); //queue poll first time.
 
         Thread.sleep(20000);//25 sec
         mockMvc.perform(get(baseUrl))
@@ -78,13 +78,22 @@ System.out.println("Submitting 3rd request which should be queued...");
                 .andReturn();
         //Thread.sleep(1000);
         //Thread.sleep(8000);
-        DroppedRequest dropped = boundedRetryQueueService.getQueue().peek();
+        DroppedRequest dropped = boundedRetryQueueService.getQueue().poll();
         boundedRetryQueueService.processRequest(dropped);
 
         assertNotNull(dropped);
         assertNotNull(dropped.getResponse());
-        assertEquals(dropped.getResponse().getStatus(),429);
+       //defect code: assertEquals(dropped.getResponse().getStatus(),429);
        // Assertions.assertEquals("Rate limit exceeded", dropped.getResponse().getWriter().toString());
 
+        assertEquals(dropped.getResponse().getStatus(),202); // defect fixed
+        System.out.println("3rd queue request retrying...");
+        //retry queue message processing
+        Thread.sleep(65000);
+        DroppedRequest dropped1 = boundedRetryQueueService.getQueue().poll();
+        boundedRetryQueueService.processRequest(dropped1);
+
+        assertNotNull(dropped1);
+        assertEquals(dropped1.getResponse().getStatus(),200); // defect fixed
     }
 }
