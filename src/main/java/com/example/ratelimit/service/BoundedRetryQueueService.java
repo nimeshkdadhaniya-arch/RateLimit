@@ -25,13 +25,12 @@ public class BoundedRetryQueueService {
 
     private final ArrayBlockingQueue<DroppedRequest> queue;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private final RateLimitFilterFactoryConfig factoryConfig;
     private final long retryIntervalMs;
 
-    public BoundedRetryQueueService(RateLimitFilterFactoryConfig factoryConfig,
+
+    public BoundedRetryQueueService(
                                     @Value("${ratelimit.retry.queue.size:10}") int capacity,
                                     @Value("${ratelimit.retry.interval.ms:90000}") long retryIntervalMs) {
-        this.factoryConfig = factoryConfig;
         this.queue = new ArrayBlockingQueue<>(capacity);
         this.retryIntervalMs = retryIntervalMs;
     }
@@ -42,27 +41,30 @@ public class BoundedRetryQueueService {
 
     @PostConstruct
     public void startWorker() {
+        log.debug("BoundedRetryQueueService startWorker");
         scheduler.scheduleWithFixedDelay(this::processOnce, retryIntervalMs, retryIntervalMs, TimeUnit.MILLISECONDS);
     }
 
-    private void processOnce() {
+    public void processOnce() {
         try {
+            log.debug("BoundedRetryQueueService processOnce");
             DroppedRequest req = queue.poll();
             log.debug("Retrying dropped request: acquired={}", req.getType());
             if (req == null) return;
             processRequest(req);
         } catch (Throwable t) {
-            // swallow to keep scheduler alive; consider logging
+            log.error("Error processing dropped request", t);
         }
     }
 
-    private void processRequest(DroppedRequest dr) {
+    public void processRequest(DroppedRequest dr) {
+        AsyncContext ctx = dr.getAsyncContext();
         try {
             boolean acquired = rateLimitService.tryAcquire(dr.getRequest(), dr.getResponse());
 
             if (acquired) {
                 // resume normal processing by dispatching/doFilter on the AsyncContext
-                AsyncContext ctx = dr.getAsyncContext();
+
                 FilterChain chain = dr.getFilterChain();
                 ctx.dispatch();
             } else {
@@ -73,6 +75,12 @@ public class BoundedRetryQueueService {
         }
 
     }
+
+
+    public ArrayBlockingQueue<DroppedRequest> getQueue() {
+        return queue;
+    }
+
 
     private void sendTooManyRequestsAndComplete(HttpServletResponse response, AsyncContext ctx) {
         try {

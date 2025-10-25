@@ -46,7 +46,7 @@ public class BoundedRetryQueueServiceTest {
     @Mock
     FilterChain chain;
     // service instance reused by tests
-    private final BoundedRetryQueueService serviceUnderTest = new BoundedRetryQueueService(factoryConfig, 10, 90000L);
+    private final BoundedRetryQueueService serviceUnderTest = new BoundedRetryQueueService( 10, 90000L);
 
 
 
@@ -67,7 +67,7 @@ public class BoundedRetryQueueServiceTest {
     @Test
     void enqueue_respectsCapacity() {
         // small capacity service to test full queue
-        BoundedRetryQueueService smallQueueService = new BoundedRetryQueueService(factoryConfig, 1, 90000L);
+        BoundedRetryQueueService smallQueueService = new BoundedRetryQueueService( 1, 90000L);
         // set rateLimitService field to avoid NPE (not used in this test)
         setPrivateField(smallQueueService, "rateLimitService", rateLimitService);
 
