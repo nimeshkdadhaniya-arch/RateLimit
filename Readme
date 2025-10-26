@@ -6,27 +6,24 @@ A Java Spring Boot application built with Maven. Use this `README.md` as a start
 ## Requirements
 1. Java 17+ (or the version specified in `pom.xml`)
 2. Maven 3.6+
-3. (Optional) Docker
 
-## Quickstart
-1. Build:
-   - `mvn clean package -DskipTests`
-2. Run (dev):
-   - `mvn spring-boot:run`
-3. Run packaged JAR:
-   - `java -jar target/<artifactId>-<version>.jar`
-4. Run tests:
-   - `mvn test`
-
-Replace `<artifactId>-<version>.jar` with the actual artifact name from `target/`.
-
-## Configuration
-Application configuration lives in `src/main/resources/application.yml` (or `application.properties`).
-Common environment variables:
-- `SPRING_PROFILES_ACTIVE` — active Spring profile
-- `SERVER_PORT` — server port (overrides `server.port` in config)
 
 Unit test coverage:
 1)Find from target/site/jacoco/index.html and src/main/plantuml
 2)Sequence diagram: Find from src/main/plantuml/sequenceDiagram.svg
 3)Class diagram: Find from src/main/plantuml/classDiagram.svg
+
+How to Run Application:
+1)Get postman or any Browser is fine too
+
+To test tokenBucket Algo hit : http://localhost:8082/api/limit?type=TOKEN_BUCKET
+To test SlideWindowLog per User hit
+For User1: http://localhost:8082/api/limit?type=SLIDING_WINDOW_LOG_USER&key=userid1
+Here for user2 :http://localhost:8082/api/limit?type=SLIDING_WINDOW_LOG_USER&key=userid2
+
+
+Type can be of following values:
+  TOKEN_BUCKET -->global ratelimiter only "type" as requestParam is supported
+  FIXED_WINDOW-->global ratelimiter only "type" as requestParam is supported
+  SLIDING_WINDOW_LOG-->global ratelimiter only "type" as requestParam is supported
+  SLIDING_WINDOW_LOG_USER--> ratelimiter "type" and "key" (userid,ipadrress,etc..) as requestParam is supported
