@@ -9,11 +9,13 @@ A Java Spring Boot application built with Maven. Use this `README.md` as a start
 
 
 Unit test coverage:
-1)Find from target/site/jacoco/index.html and src/main/plantuml
-2)Sequence diagram: Find from src/main/plantuml/sequenceDiagram.svg
-3)Class diagram: Find from src/main/plantuml/classDiagram.svg
+1)Find from  UnitTestConverage.png from src/main/plantuml : Unit and integration  coverage: 92% (instructions) and 78% (branches).
+2)Sequence diagram: Find from src/main/plantuml/sequenceDiagram.svg -->rightlick and open in new window
+3)Class diagram: Find from src/main/plantuml/classDiagram.svg-->rightlick and open in new window
+4)RateLimit ideal solution : in current project redis and rulecache is not implemented. Ratelimit service can be scaled horizontally, Queue is global.
+Find from RateLimit_architecture.png
 
-How to Run Application:
+4)How to Run Application:
 1)Get postman or any Browser is fine too
 
 To test tokenBucket Algo hit : http://localhost:8082/api/limit?type=TOKEN_BUCKET
