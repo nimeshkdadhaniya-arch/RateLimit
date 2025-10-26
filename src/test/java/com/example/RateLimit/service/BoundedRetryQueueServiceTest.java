@@ -8,6 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -51,8 +52,20 @@ public class BoundedRetryQueueServiceTest {
     @Mock
     FilterChain chain;
     // service instance reused by tests
-    private final BoundedRetryQueueService serviceUnderTest = new BoundedRetryQueueService( 5, 90000L);
+    //private final BoundedRetryQueueService serviceUnderTest = new BoundedRetryQueueService( 5, 90000L);
 
+    private  BoundedRetryQueueService serviceUnderTest;
+    Properties props;
+    @BeforeEach
+    void setUp() {
+        props = loadTestProperties();
+        int capacity = Integer.parseInt(props.getProperty("ratelimit.queue.retry.queue.size", "5"));
+        long retryIntervalMs = Long.parseLong(props.getProperty("ratelimit.queue.retry.interval.ms", "90000"));
+
+        serviceUnderTest = new BoundedRetryQueueService(capacity, retryIntervalMs);
+        // inject mocked RateLimitService to avoid NPE during tests
+        setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
+    }
 
 
     // helper to shutdown internal scheduler after test to avoid thread leak
@@ -72,12 +85,12 @@ public class BoundedRetryQueueServiceTest {
     @Test
     void enqueue_respectsCapacity() {
         // small capacity service to test full queue
-        Properties props = loadTestProperties();
+       // Properties props = loadTestProperties();
         String retryIntervalMsStr = props.getProperty("ratelimit.queue.retry.interval.ms");
         long retryIntervalMs = Long.parseLong(retryIntervalMsStr);
         BoundedRetryQueueService smallQueueService = new BoundedRetryQueueService( 1, retryIntervalMs);
         // set rateLimitService field to avoid NPE (not used in this test)
-        setPrivateField(smallQueueService, "rateLimitService", rateLimitService);
+       // setPrivateField(smallQueueService, "rateLimitService", rateLimitService);
 
         boolean first = smallQueueService.enqueue(mock(DroppedRequest.class));
         boolean second = smallQueueService.enqueue(mock(DroppedRequest.class));
@@ -93,7 +106,7 @@ public class BoundedRetryQueueServiceTest {
     @Test
     void processRequest_whenAcquired_dispatchesAsyncContext() throws Exception {
         // arrange
-        setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
+        //setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
 
         when(droppedRequest.getRequest()).thenReturn(req);
         when(droppedRequest.getResponse()).thenReturn(resp);
@@ -114,7 +127,7 @@ public class BoundedRetryQueueServiceTest {
     @Test
     void processRequest_whenNotAcquired_sends202AndCompletes() throws Exception {
         // arrange
-        setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
+       // setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
 
         when(droppedRequest.getRequest()).thenReturn(req);
         when(droppedRequest.getResponse()).thenReturn(resp);
@@ -139,7 +152,7 @@ public class BoundedRetryQueueServiceTest {
     @Test
     void processRequest_whenAttemptsExceeded_sends429AndCompletes() throws Exception {
         // arrange
-        setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
+       // setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
 
         when(droppedRequest.getRequest()).thenReturn(req);
         when(droppedRequest.getResponse()).thenReturn(resp);
