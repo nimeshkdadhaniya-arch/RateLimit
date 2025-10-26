@@ -1,0 +1,32 @@
+# Spring Boot Application
+
+Short description:
+A Java Spring Boot application built with Maven. Use this `README.md` as a starting point — update project name, endpoints and configuration notes to match the repository.
+
+## Requirements
+1. Java 17+ (or the version specified in `pom.xml`)
+2. Maven 3.6+
+3. (Optional) Docker
+
+## Quickstart
+1. Build:
+   - `mvn clean package -DskipTests`
+2. Run (dev):
+   - `mvn spring-boot:run`
+3. Run packaged JAR:
+   - `java -jar target/<artifactId>-<version>.jar`
+4. Run tests:
+   - `mvn test`
+
+Replace `<artifactId>-<version>.jar` with the actual artifact name from `target/`.
+
+## Configuration
+Application configuration lives in `src/main/resources/application.yml` (or `application.properties`).
+Common environment variables:
+- `SPRING_PROFILES_ACTIVE` — active Spring profile
+- `SERVER_PORT` — server port (overrides `server.port` in config)
+
+Unit test coverage:
+1)Find from target/site/jacoco/index.html and src/main/plantuml
+2)Sequence diagram: Find from src/main/plantuml/sequenceDiagram.svg
+3)Class diagram: Find from src/main/plantuml/classDiagram.svg
