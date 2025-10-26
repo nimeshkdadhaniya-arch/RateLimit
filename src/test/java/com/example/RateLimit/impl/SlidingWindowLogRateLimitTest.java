@@ -33,14 +33,14 @@ public class SlidingWindowLogRateLimitTest  extends RateLimitAplicationTests {
 
     @Test
     void testAllowRequestsUnderLimit() {// 2 requests per second
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < maxRequestsPerWindow; i++) {
             Assertions.assertEquals(true,rateLimiter.tryAcquire());
         }
     }
 
     @Test
     void testBlockRequestsExceedingLimit() {
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < maxRequestsPerWindow; i++) {
             rateLimiter.tryAcquire();
         }
         // 3rd request should fail
@@ -51,7 +51,7 @@ public class SlidingWindowLogRateLimitTest  extends RateLimitAplicationTests {
     @Test
     void testWindowSlideAllowsRequestsAgain() throws InterruptedException {
 
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < maxRequestsPerWindow; i++) {
             Assertions.assertTrue(rateLimiter.tryAcquire());
         }
         // Denied before window reset
@@ -83,7 +83,7 @@ public class SlidingWindowLogRateLimitTest  extends RateLimitAplicationTests {
         latch.await();
         pool.shutdown();
 
-        Assertions.assertTrue(allowedCount.get() <= 2,
+        Assertions.assertTrue(allowedCount.get() <= maxRequestsPerWindow,
                 "Allowed requests should not exceed limit; got: " + allowedCount.get());
     }
 

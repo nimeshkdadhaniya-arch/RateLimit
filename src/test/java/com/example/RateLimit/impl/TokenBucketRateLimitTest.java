@@ -102,7 +102,7 @@ public class TokenBucketRateLimitTest extends RateLimitAplicationTests {
         }
 
         // Only 2 should be allowed as per bucket capacity
-        Assertions.assertEquals(2, allowedCount);
+        Assertions.assertEquals(bucketCapacity, allowedCount);
         executor.shutdown();
     }
 
@@ -118,7 +118,7 @@ public class TokenBucketRateLimitTest extends RateLimitAplicationTests {
     void testHighLimit() {
         TokenBucketConfig tokenBucketConfig1 = new TokenBucketConfig(Integer.MAX_VALUE, Integer.MAX_VALUE, refillIntervalMillis);
         GlobalRateLimiter rateLimiter = new TokenBucketRateLimit(tokenBucketConfig1); // 2 requests per second
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < bucketCapacity; i++) {
             rateLimiter.tryAcquire();
         }
         // 3rd request should allow too

@@ -109,7 +109,7 @@ public class SlidingWindowLogUserRateLimiterTests  extends RateLimitAplicationTe
         latch.await();
         pool.shutdown();
 
-        Assertions.assertTrue(allowedCount.get() <= 2,
+        Assertions.assertTrue(allowedCount.get() <= maxRequestsPerWindow,
                 "Allowed requests should not exceed limit; got: " + allowedCount.get());
     }
 
