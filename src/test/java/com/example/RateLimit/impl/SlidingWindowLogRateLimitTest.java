@@ -18,7 +18,7 @@ public class SlidingWindowLogRateLimitTest  extends RateLimitAplicationTests {
 
     private GlobalRateLimiter rateLimiter;
     @Getter
-    @Value("${sliding.log.windowsize}")
+    @Value("${sliding.log.limit}")
     int maxRequestsPerWindow;
     @Getter
     @Value("${sliding.log.timewindowMillis}")

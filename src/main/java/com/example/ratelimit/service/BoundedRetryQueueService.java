@@ -49,7 +49,11 @@ public class BoundedRetryQueueService {
         try {
             log.debug("BoundedRetryQueueService processOnce");
             DroppedRequest req = queue.poll();
-            log.debug("Retrying dropped request: acquired={}", req.getType());
+            try {
+                log.debug("Retrying dropped request: acquired={}", req.getType());
+            }catch(NullPointerException npe){
+                log.warn("it's due to no request in the queue");
+            }
             if (req == null) return;
             processRequest(req);
         } catch (Throwable t) {

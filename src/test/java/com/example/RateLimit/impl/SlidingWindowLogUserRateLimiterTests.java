@@ -20,7 +20,7 @@ public class SlidingWindowLogUserRateLimiterTests  extends RateLimitAplicationTe
 
     private KeyRateLimiter rateLimiter;
     @Getter
-    @Value("${sliding.log.user.windowsize}")
+    @Value("${sliding.log.user.limit}")
     int maxRequestsPerWindow;
     @Getter
     @Value("${sliding.log.user.timewindowMillis}")

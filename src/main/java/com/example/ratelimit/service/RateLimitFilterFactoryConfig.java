@@ -29,7 +29,7 @@ public class RateLimitFilterFactoryConfig {
     long refillIntervalMillis;
 
     @Getter
-    @Value("${fix.window.counter.windowsize}")
+    @Value("${fix.window.counter.limit}")
     int max_requests_per_window;
 
     @Getter
@@ -37,14 +37,14 @@ public class RateLimitFilterFactoryConfig {
     long window_size_ms;
 
     @Getter
-    @Value("${sliding.log.windowsize}")
+    @Value("${sliding.log.limit}")
     int slidinglogwindowSize;
 
     @Getter
     @Value("${sliding.log.timewindowMillis}")
     long slidinglogwindowTimeMillis;
     @Getter
-    @Value("${sliding.log.user.windowsize}")
+    @Value("${sliding.log.user.limit}")
     int slidingloguserwindowSize;
 
     @Getter

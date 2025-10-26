@@ -18,7 +18,7 @@ public class FixedWindowRateLimitTest extends RateLimitAplicationTests {
 
     private GlobalRateLimiter rateLimiter;
     @Getter
-    @Value("${fix.window.counter.windowsize}")
+    @Value("${fix.window.counter.limit}")
     int maxRequestsPerWindow;
     @Getter
     @Value("${fix.window.counter.timewindowMillis}")
