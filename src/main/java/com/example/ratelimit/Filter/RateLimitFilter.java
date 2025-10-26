@@ -60,9 +60,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
             DroppedRequest dropped = new DroppedRequest(request, response,chain,asyncContext);
             boolean enqueued = retryQueueService.enqueue(dropped);
             if (enqueued) {
-                log.debug("Request enqueued for retry processing later.");
+                log.debug("Enough token not found and Request enqueued for retry processing later.");
                 response.setStatus(HttpServletResponse.SC_ACCEPTED); // accepted for background processing
             } else {
+                log.debug("Enough token not found and Pending request queue is full, rejecting with 429.");
                 response.setStatus(429); // queue full => reject
             }
         }

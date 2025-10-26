@@ -1,0 +1,143 @@
+@startuml
+title Rate Limiter - Class Diagram
+
+package "com.example.ratelimit" {
+  package "filter" {
+    class RateLimitFilter {
+      - ASYNC_TIMEOUT_MS : long
+      + doFilterInternal(req : HttpServletRequest, res : HttpServletResponse, chain : FilterChain) : void
+    }
+  }
+
+  package "api" {
+    interface IRateLimitService {
+      + setHeaders(req : HttpServletRequest, res : HttpServletResponse, limiter : RateLimiter) : void
+      + tryAcquire(req : HttpServletRequest, res : HttpServletResponse) : boolean
+    }
+    interface RateLimiter {
+      + getRateLimitHeaderInfo(req : HttpServletRequest) : header.RateLimitHeaderInfo
+    }
+    interface GlobalRateLimiter {
+      + tryAcquire() : boolean
+    }
+    interface KeyRateLimiter {
+      + tryAcquire(key : String) : boolean
+    }
+  }
+
+  package "service" {
+    class RateLimitService {
+      + setHeaders(req : HttpServletRequest, res : HttpServletResponse, limiter : RateLimiter) : void
+      + tryAcquire(req : HttpServletRequest, res : HttpServletResponse) : boolean
+    }
+
+    class RateLimitFilterFactoryConfig {
+      ~ bucketCapacity : long
+      ~ maxRequestsPerWindow : int
+      + filterBasedOnType(t : helper.RateLimiterTypeEnum) : api.RateLimiter
+      + filterBasedOnKey(t : helper.RateLimiterTypeEnum) : Optional
+    }
+
+    class BoundedRetryQueueService {
+      - queue : ArrayBlockingQueue
+      - retryIntervalMs : long
+      + enqueue(d : helper.DroppedRequest) : boolean
+      + startWorker() : void
+    }
+  }
+
+  package "controller" {
+    class RateLimitController {
+      + checkLimit() : ResponseEntity
+    }
+  }
+
+  package "helper" {
+    class DroppedRequest {
+      ~ asyncContext : AsyncContext
+      ~ filterChain : FilterChain
+      - request : HttpServletRequest
+      - response : HttpServletResponse
+      - attempts : int
+      + incrementAttempts() : void
+    }
+
+    enum RateLimiterTypeEnum {
+      FIXED_WINDOW
+      SLIDING_WINDOW_LOG
+      SLIDING_WINDOW_LOG_USER
+      TOKEN_BUCKET
+    }
+
+    class TokenBucketConfig {
+      - bucketCapacity : long
+      - refillIntervalMillis : long
+      - refillTokens : long
+    }
+  }
+
+  package "impl" {
+    class FixedWindowRateLimit {
+      - MAX_REQUESTS_PER_WINDOW : int
+      - WINDOW_SIZE_MS : long
+      + tryAcquire() : boolean
+      + getRemainingLimit() : long
+    }
+
+    class SlidingWindowLogRateLimit {
+      - MAX_REQUESTS_PER_WINDOW : int
+      - WINDOW_SIZE_MS : long
+      + tryAcquire() : boolean
+      + getRemainingLimit() : long
+    }
+
+    class SlidingWindowLogUserRateLimit {
+      - MAX_REQUESTS_PER_WINDOW : int
+      - WINDOW_SIZE_MS : long
+      - userRequestLogs : ConcurrentHashMap
+      + tryAcquire(userKey : String) : boolean
+      + getRemainingLimit(userKey : String) : long
+    }
+
+    class TokenBucketRateLimit {
+      - availableTokens : AtomicLong
+      - bucketCapacity : long
+      - lastRefillTimestamp : AtomicLong
+      - refillIntervalMillis : long
+      + tryAcquire() : boolean
+      + refill() : void
+    }
+  }
+
+  package "header" {
+    class RateLimitHeaderInfo {
+      + limit : long
+      + remaining : long
+      + reset : long
+    }
+  }
+}
+
+' Relationships
+filter.RateLimitFilter --> api.IRateLimitService : rateLimitService
+filter.RateLimitFilter --> service.BoundedRetryQueueService : retryQueueService
+
+service.RateLimitService ..|> api.IRateLimitService
+service.RateLimitService --> service.RateLimitFilterFactoryConfig : factoryConfig
+
+api.GlobalRateLimiter ..|> api.RateLimiter
+api.KeyRateLimiter ..|> api.RateLimiter
+
+impl.FixedWindowRateLimit ..|> api.GlobalRateLimiter
+impl.SlidingWindowLogRateLimit ..|> api.GlobalRateLimiter
+impl.SlidingWindowLogUserRateLimit ..|> api.KeyRateLimiter
+impl.TokenBucketRateLimit ..|> api.GlobalRateLimiter
+
+service.BoundedRetryQueueService --> service.RateLimitService : rateLimitService
+service.BoundedRetryQueueService --> service.RateLimitFilterFactoryConfig : factoryConfig
+
+service.RateLimitFilterFactoryConfig ..> api.RateLimiter : returns
+helper.DroppedRequest --> filter.RateLimitFilter : usedBy
+controller.RateLimitController --> service.RateLimitService : dependsOn
+
+@enduml

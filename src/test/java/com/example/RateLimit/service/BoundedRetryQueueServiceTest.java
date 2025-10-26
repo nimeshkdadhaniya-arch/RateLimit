@@ -12,11 +12,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Properties;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,7 +51,7 @@ public class BoundedRetryQueueServiceTest {
     @Mock
     FilterChain chain;
     // service instance reused by tests
-    private final BoundedRetryQueueService serviceUnderTest = new BoundedRetryQueueService( 10, 90000L);
+    private final BoundedRetryQueueService serviceUnderTest = new BoundedRetryQueueService( 5, 90000L);
 
 
 
@@ -67,7 +72,10 @@ public class BoundedRetryQueueServiceTest {
     @Test
     void enqueue_respectsCapacity() {
         // small capacity service to test full queue
-        BoundedRetryQueueService smallQueueService = new BoundedRetryQueueService( 1, 90000L);
+        Properties props = loadTestProperties();
+        String retryIntervalMsStr = props.getProperty("ratelimit.queue.retry.interval.ms");
+        long retryIntervalMs = Long.parseLong(retryIntervalMsStr);
+        BoundedRetryQueueService smallQueueService = new BoundedRetryQueueService( 1, retryIntervalMs);
         // set rateLimitService field to avoid NPE (not used in this test)
         setPrivateField(smallQueueService, "rateLimitService", rateLimitService);
 
@@ -81,7 +89,7 @@ public class BoundedRetryQueueServiceTest {
         shutdownScheduler(smallQueueService);
     }
 
-    //testing of Asynch process request when acquired that time it should not return 429 statuscode.
+    //testing of Asynch process request when Token is acquired that time it should not return 429 statuscode.
     @Test
     void processRequest_whenAcquired_dispatchesAsyncContext() throws Exception {
         // arrange
@@ -102,9 +110,9 @@ public class BoundedRetryQueueServiceTest {
         verify(resp, never()).setStatus(429);
     }
 
-    //testing of Asynch process request when not acquired that time it should  return 429 statuscode.
+    //testing of Asynch process request when token is not acquired that time it should  return 202 statuscode.
     @Test
-    void processRequest_whenNotAcquired_sends429AndCompletes() throws Exception {
+    void processRequest_whenNotAcquired_sends202AndCompletes() throws Exception {
         // arrange
         setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
 
@@ -113,9 +121,9 @@ public class BoundedRetryQueueServiceTest {
         when(droppedRequest.getAsyncContext()).thenReturn(asyncContext);
 
         // provide a writer so write/flush calls don't throw
-        StringWriter sw = new StringWriter();
+        /*StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        when(resp.getWriter()).thenReturn(pw);
+        when(resp.getWriter()).thenReturn(pw);*/
 
         when(rateLimitService.tryAcquire(req, resp)).thenReturn(false);
 
@@ -123,9 +131,40 @@ public class BoundedRetryQueueServiceTest {
         invokeProcessRequest(serviceUnderTest, droppedRequest);
 
         // assert
+        verify(resp, atLeastOnce()).setStatus(HttpServletResponse.SC_ACCEPTED);
+        // verify(asyncContext, times(1)).complete();
+    }
+
+    //During retry attempts exceeded it should return 429 statuscode.
+    @Test
+    void processRequest_whenAttemptsExceeded_sends429AndCompletes() throws Exception {
+        // arrange
+        setPrivateField(serviceUnderTest, "rateLimitService", rateLimitService);
+
+        when(droppedRequest.getRequest()).thenReturn(req);
+        when(droppedRequest.getResponse()).thenReturn(resp);
+        when(droppedRequest.getAsyncContext()).thenReturn(asyncContext);
+        // ensure branch: attempts > MAX_RETRY (MAX_RETRY is 3 in service, so use 4)
+        when(droppedRequest.getAttempts()).thenReturn(4);
+
+        // ensure tryAcquire returns false so code reaches attempts check
+        when(rateLimitService.tryAcquire(req, resp)).thenReturn(false);
+
+        // provide a real writer so sendTooManyRequestsAndComplete can write without throwing
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        when(resp.getWriter()).thenReturn(pw);
+
+        // act
+        invokeProcessRequest(serviceUnderTest, droppedRequest);
+
+        // assert: 429 set and async context completed, and JSON contains expected message
         verify(resp, atLeastOnce()).setStatus(429);
         verify(asyncContext, times(1)).complete();
+        pw.flush();
+        assertTrue(sw.toString().contains("Rate limit exceeded"));
     }
+
 
 
 
@@ -156,5 +195,15 @@ public class BoundedRetryQueueServiceTest {
             }
         } catch (Exception ignored) {}
     }
+    private Properties loadTestProperties() {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("application.properties")) {
+            Properties props = new Properties();
+            props.load(in);
+            return props;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
 
 }

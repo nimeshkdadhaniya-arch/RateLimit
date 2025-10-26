@@ -2,7 +2,9 @@ package com.example.RateLimit.impl;
 
 import com.example.RateLimit.RateLimitAplicationTests;
 import com.example.ratelimit.api.KeyRateLimiter;
+import com.example.ratelimit.helper.TokenBucketConfig;
 import com.example.ratelimit.impl.SlidingWindowLogUserRateLimit;
+import com.example.ratelimit.impl.TokenBucketRateLimit;
 import lombok.Getter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +52,7 @@ public class SlidingWindowLogUserRateLimiterTests  extends RateLimitAplicationTe
     }
 
 
-   @Test //Automatic Reset/Refill
+   @Test //After window slide, requests are allowed again
     void testWindowSlideAllowsRequestsAgain() throws InterruptedException {
         String user = "user2";
 
@@ -109,5 +111,12 @@ public class SlidingWindowLogUserRateLimiterTests  extends RateLimitAplicationTe
 
         Assertions.assertTrue(allowedCount.get() <= 2,
                 "Allowed requests should not exceed limit; got: " + allowedCount.get());
+    }
+
+    @Test
+    void testZeroCapacityLimiter() {
+        Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            new SlidingWindowLogUserRateLimit(0, 0,System::currentTimeMillis);
+        });
     }
 }

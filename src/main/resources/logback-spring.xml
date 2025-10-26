@@ -48,7 +48,7 @@
 
     <!-- Your application package -->
     <logger name="com.example.ratelimit" level="DEBUG" />
-
+    <logger name="com.example.RateLimit" level="DEBUG" />
     <!-- ========================= -->
     <!--  Root Logger              -->
     <!-- ========================= -->

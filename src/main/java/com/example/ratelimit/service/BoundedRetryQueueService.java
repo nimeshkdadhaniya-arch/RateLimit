@@ -29,8 +29,8 @@ public class BoundedRetryQueueService {
     private static final int MAX_RETRY = 3;
 
     public BoundedRetryQueueService(
-                                    @Value("${ratelimit.retry.queue.size:10}") int capacity,
-                                    @Value("${ratelimit.retry.interval.ms:90000}") long retryIntervalMs) {
+            @Value("${ratelimit.queue.retry.queue.size:5}") int capacity,
+            @Value("${ratelimit.queue.retry.interval.ms:90000}") long retryIntervalMs) {
         this.queue = new ArrayBlockingQueue<>(capacity);
         this.retryIntervalMs = retryIntervalMs;
     }
@@ -93,7 +93,7 @@ public class BoundedRetryQueueService {
         if (enqueued) {
             log.debug("Request enqueued for retry processing later.");
             //req..response.setStatus(HttpServletResponse.SC_ACCEPTED); // accepted for background processing
-
+            req.getResponse().setStatus(HttpServletResponse.SC_ACCEPTED); ///pending
         } else {
            // response.setStatus(429); // queue full => reject
         }
@@ -128,10 +128,15 @@ public class BoundedRetryQueueService {
 
     private void sendServerErrorAndComplete(HttpServletResponse response, AsyncContext ctx) {
         try {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("Internal Server Error");
-            response.getWriter().flush();
-        } catch (IOException ignored) {
+            try {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.getWriter().write("Internal Server Error");
+                response.getWriter().flush();
+            } catch (IllegalStateException e) {
+                log.warn("Cannot write error response: response recycled or already committed", e);
+            } catch (IOException e) {
+                log.warn("IO error writing server error response", e);
+            }
         } finally {
             try {
                 ctx.complete();

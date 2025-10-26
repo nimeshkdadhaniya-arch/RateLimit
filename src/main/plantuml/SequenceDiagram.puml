@@ -1,0 +1,80 @@
+@startuml
+actor User
+participant "HTTP Server\n(Tomcat / Embedded)" as Server
+participant "RateLimitFilter\n.doFilterInternal(...)" as Filter
+participant "IRateLimitService\n.tryAcquire(...)" as RateLimitService
+participant "FilterChain\n.doFilter(...)" as Chain
+participant "BoundedRetryQueueService\n.enqueue()/dequeue()" as RetryQueue
+participant "AsyncContext" as Async
+participant "RetryWorker\n(background thread)" as Worker
+participant "DroppedRequest\n(request,response,chain,asyncContext,retriesLeft)" as DroppedRequest
+
+User -> Server: HTTP GET /api/limit?type=...
+Server -> Filter: call doFilterInternal(request, response, chain)
+activate Filter
+
+Filter -> RateLimitService: tryAcquire(request)
+activate RateLimitService
+RateLimitService --> Filter: boolean acquired
+deactivate RateLimitService
+
+alt acquired == true
+    Filter -> Chain: chain.doFilter(request, response)
+    activate Chain
+    Chain --> Filter: processed (controller -> response)
+    deactivate Chain
+    Filter --> Server: return 200 OK (Limit OK)
+else acquired == false
+    Filter -> Filter: request.startAsync()\nsetTimeout(ASYNC_TIMEOUT_MS)
+    Filter -> Async: obtain AsyncContext
+    activate Async
+
+    Filter -> RetryQueue: enqueue(new DroppedRequest(request,response,chain,asyncContext, retries=MAX_RETRIES))
+    activate RetryQueue
+    RetryQueue --> Filter: boolean enqueued
+    deactivate RetryQueue
+
+    alt enqueued == true
+        Filter --> Server: 202 Accepted (accepted for background processing)
+    else enqueued == false
+        Filter --> Server: 429 Too Many Requests (queue full -> reject)
+    end
+
+    par Retry worker loop (background)
+        Worker -> RetryQueue: dequeue()
+        activate RetryQueue
+        RetryQueue --> Worker: DroppedRequest or null
+        deactivate RetryQueue
+
+        alt dequeued != null
+            Worker -> DroppedRequest: inspect(retriesLeft)
+            Worker -> RateLimitService: tryAcquire(dropped.request)
+            activate RateLimitService
+            RateLimitService --> Worker: boolean acquired
+            deactivate RateLimitService
+
+            alt acquired == true
+                Worker -> Async: dispatch/resume using dropped.asyncContext
+                activate Async
+                Async -> Chain: resume/doFilter(dropped.request, dropped.response)
+                activate Chain
+                Chain --> Async: processed -> response
+                deactivate Chain
+                Async -> Worker: complete / cleanup asyncContext
+                deactivate Async
+            else acquired == false
+                alt dropped.retriesLeft > 0
+                    Worker -> RetryQueue: re-enqueue(dropped with retriesLeft-1)
+                else
+                    Worker -> DroppedRequest: respond with 429\n(dropped.response.setStatus(429); asyncContext.complete())
+                end
+            end
+        else
+            Worker -> Worker: wait/sleep until next attempt
+        end
+    end
+    deactivate Async
+end
+
+deactivate Filter
+@enduml
