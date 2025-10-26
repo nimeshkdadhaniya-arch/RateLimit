@@ -30,3 +30,9 @@ Type can be of following values:
   FIXED_WINDOW-->global ratelimiter only "type" as requestParam is supported
   SLIDING_WINDOW_LOG-->global ratelimiter only "type" as requestParam is supported
   SLIDING_WINDOW_LOG_USER--> ratelimiter "type" and "key" (userid,ipadrress,etc..) as requestParam is supported
+
+5)Implemented Token response in response -header:
+  X-RateLimit-Max-Limit
+  X-RateLimit-Remaining
+  X-RateLimit-Used
+  X-RateLimit-Reset
